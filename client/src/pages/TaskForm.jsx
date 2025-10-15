@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import API from "../services/api.js";
-import { useNavigate } from "react-router-dom";
 
-export default function TaskForm() {
-  const nav = useNavigate();
+export default function TaskForm({ isEdit = false }) {
+  const { id } = useParams(); // used in edit mode
+  const navigate = useNavigate();
+
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -13,14 +15,14 @@ export default function TaskForm() {
     assignedTo: "",
   });
 
-  const [files, setFiles] = useState([]); // ✅ handle multiple files
+  const [files, setFiles] = useState([]);
   const [users, setUsers] = useState([]);
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(isEdit);
 
   const user = JSON.parse(localStorage.getItem("user"));
 
-  // ✅ Fetch all users (for admin assignment)
   useEffect(() => {
     if (user?.role === "admin") {
       API.get("/users")
@@ -29,18 +31,42 @@ export default function TaskForm() {
     }
   }, [user?.role]);
 
-  // ✅ Handle input field changes
+  useEffect(() => {
+    const fetchTask = async () => {
+      if (!isEdit) return;
+      try {
+        setFetching(true);
+        const res = await API.get(`/tasks/${id}`);
+        const t = res.data;
+
+        setForm({
+          title: t.title,
+          description: t.description || "",
+          status: t.status,
+          priority: t.priority,
+          dueDate: t.dueDate ? new Date(t.dueDate).toISOString().split("T")[0] : "",
+          assignedTo: t.assignedTo?._id || "",
+        });
+      } catch (err) {
+        console.error("Error fetching task:", err);
+        setMsg(err.response?.data?.message || "Failed to fetch task details");
+      } finally {
+        setFetching(false);
+      }
+    };
+    fetchTask();
+  }, [isEdit, id]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // ✅ Handle multiple file uploads
   const handleFileChange = (e) => {
-    setFiles([...e.target.files]); // store all selected files
+    setFiles([...e.target.files]);
   };
 
-  // ✅ Handle submit
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -53,46 +79,53 @@ export default function TaskForm() {
       formData.append("status", form.status);
       formData.append("priority", form.priority);
       formData.append("dueDate", form.dueDate);
+
       formData.append(
         "assignedTo",
         user.role === "admin" ? form.assignedTo : user._id
       );
 
-      // ✅ Append all selected files as "documents"
-      files.forEach((file) => {
-        formData.append("documents", file);
-      });
+      // Append new files
+      files.forEach((file) => formData.append("documents", file));
 
-      await API.post("/tasks", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      if (isEdit) {
+        await API.put(`/tasks/${id}`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        setMsg("Task updated successfully!");
+      } else {
+        await API.post("/tasks", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        setMsg("Task created successfully!");
+      }
 
-      setMsg("✅ Task created successfully!");
-      setForm({
-        title: "",
-        description: "",
-        status: "pending",
-        priority: "medium",
-        dueDate: "",
-        assignedTo: "",
-      });
-      setFiles([]);
-
-      // Navigate back after short delay
-      setTimeout(() => nav("/"), 1000);
+      setTimeout(() => navigate("/"), 1200);
     } catch (err) {
-      console.error(err);
-      setMsg(err.response?.data?.message || "❌ Error creating task");
+      console.error("Error submitting task:", err);
+      setMsg(err.response?.data?.message || "Failed to save task");
     } finally {
       setLoading(false);
     }
   };
 
+  if (fetching) return <p className="text-center mt-6">Loading task...</p>;
+
   return (
     <div className="bg-white p-6 rounded shadow max-w-xl mx-auto">
-      <h2 className="text-2xl font-semibold mb-4">Create Task</h2>
+      <h2 className="text-2xl font-semibold mb-4">
+        {isEdit ? "Edit Task" : "Create Task"}
+      </h2>
 
-      {msg && <p className="mb-3 text-blue-600">{msg}</p>}
+      {msg && (
+        <p
+          className={`mb-3 ${
+            msg.startsWith("") ? "text-green-600" : "text-red-600"
+          }`}
+        >
+          {msg}
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         <input
@@ -169,7 +202,7 @@ export default function TaskForm() {
           <label className="block text-sm mb-1">Attach File(s):</label>
           <input
             type="file"
-            multiple // ✅ allows selecting multiple files
+            multiple
             onChange={handleFileChange}
             className="border p-2 rounded w-full"
           />
@@ -182,12 +215,28 @@ export default function TaskForm() {
           )}
         </div>
 
-        <button
-          disabled={loading}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-        >
-          {loading ? "Creating..." : "Create Task"}
-        </button>
+        <div className="flex gap-3 justify-between mt-2">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="bg-gray-300 text-black px-4 py-2 rounded hover:bg-gray-400"
+          >
+            Cancel
+          </button>
+
+          <button
+            disabled={loading}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            {loading
+              ? isEdit
+                ? "Updating..."
+                : "Creating..."
+              : isEdit
+              ? "Update Task"
+              : "Create Task"}
+          </button>
+        </div>
       </form>
     </div>
   );

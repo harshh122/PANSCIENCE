@@ -18,8 +18,8 @@ const taskSchema = new mongoose.Schema(
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     documents: [
       {
-        filename: { type: String, required: true },      // actual filename saved on disk
-        originalname: { type: String, required: true },  // original uploaded file name
+        filename: { type: String, required: true },     
+        originalname: { type: String, required: true },  
       }
     ],
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },

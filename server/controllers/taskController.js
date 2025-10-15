@@ -3,16 +3,19 @@ import fs from "fs";
 import path from "path";
 import { Task } from "../models/Task.js";
 
-// Create Task
 export const createTask = async (req, res) => {
   try {
     const { title, description, status, priority, dueDate, assignedTo } = req.body;
-    if (!title) return res.status(400).json({ message: "Title required" });
+    if (!title) return res.status(400).json({ message: "Title is required" });
 
-    const documents = req.files?.map(f => ({
-      filename: f.filename,
-      originalname: f.originalname
-    })) || [];
+    const documents =
+      req.files?.map((f) => ({
+        filename: f.filename,
+        path: `uploads/${f.filename}`,
+        originalname: f.originalname,
+      })) || [];
+
+    const assignedUser = req.user.role === "admin" ? assignedTo : req.user._id;
 
     const task = await Task.create({
       title,
@@ -20,9 +23,9 @@ export const createTask = async (req, res) => {
       status,
       priority,
       dueDate,
-      assignedTo,
+      assignedTo: assignedUser,
       createdBy: req.user._id,
-      documents
+      documents,
     });
 
     res.status(201).json(task);
@@ -32,10 +35,10 @@ export const createTask = async (req, res) => {
   }
 };
 
-// Get all tasks
 export const getTasks = async (req, res) => {
   try {
     const { status, priority, sort = "-createdAt", page = 1, limit = 20 } = req.query;
+
     let query = Task.find();
 
     if (req.user.role === "user") {
@@ -53,18 +56,25 @@ export const getTasks = async (req, res) => {
 
     res.json(tasks);
   } catch (err) {
-    console.error("Error fetching tasks:", err);
+    console.error(" Error fetching tasks:", err);
     res.status(500).json({ message: "Failed to fetch tasks" });
   }
 };
 
-// Get task by ID
 export const getTaskById = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id)
       .populate("createdBy assignedTo", "email role");
 
     if (!task) return res.status(404).json({ message: "Task not found" });
+
+    if (
+      req.user.role !== "admin" &&
+      !req.user._id.equals(task.createdBy) &&
+      !req.user._id.equals(task.assignedTo)
+    ) {
+      return res.status(403).json({ message: "Not authorized to view this task" });
+    }
 
     res.json(task);
   } catch (err) {
@@ -73,24 +83,28 @@ export const getTaskById = async (req, res) => {
   }
 };
 
-// Update Task
 export const updateTask = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: "Task not found" });
 
-    if (!req.user._id.equals(task.createdBy) && req.user.role !== "admin") {
-      return res.status(403).json({ message: "Not authorized to update" });
+    if (
+      req.user.role !== "admin" &&
+      !req.user._id.equals(task.createdBy) &&
+      !req.user._id.equals(task.assignedTo)
+    ) {
+      return res.status(403).json({ message: "Not authorized to update this task" });
     }
 
     Object.assign(task, req.body);
 
     if (req.files && req.files.length > 0) {
-      const newDocs = req.files.map(f => ({
+      const newDocs = req.files.map((f) => ({
         filename: f.filename,
-        originalname: f.originalname
+        path: `uploads/${f.filename}`,
+        originalname: f.originalname,
       }));
-      task.documents = [...task.documents, ...newDocs].slice(0, 3); // max 3 files
+      task.documents = [...task.documents, ...newDocs].slice(0, 3);
     }
 
     await task.save();
@@ -101,22 +115,28 @@ export const updateTask = async (req, res) => {
   }
 };
 
-// Delete Task
 export const deleteTask = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: "Task not found" });
 
-    if (!req.user._id.equals(task.createdBy) && req.user.role !== "admin") {
-      return res.status(403).json({ message: "Not authorized to delete" });
+    if (
+      req.user.role !== "admin" &&
+      !req.user._id.equals(task.createdBy) &&
+      !req.user._id.equals(task.assignedTo)
+    ) {
+      return res.status(403).json({ message: "Not authorized to delete this task" });
     }
 
-    // Delete files from local storage
     if (task.documents && task.documents.length > 0) {
       for (const doc of task.documents) {
-        const filePath = path.join("uploads", doc.filename);
+        const filePath = path.resolve(doc.path);
         if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
+          try {
+            fs.unlinkSync(filePath);
+          } catch (err) {
+            console.error(`Failed to delete file: ${filePath}`, err);
+          }
         }
       }
     }

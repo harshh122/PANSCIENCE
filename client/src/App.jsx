@@ -15,15 +15,15 @@ export default function App() {
   const { user } = useContext(AuthContext);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
       <div className="container mx-auto p-4">
         <Routes>
-     
+          {/* Auth Routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          
+          {/* Protected Dashboard Layout */}
           <Route
             path="/"
             element={
@@ -32,12 +32,20 @@ export default function App() {
               </ProtectedRoute>
             }
           >
+            {/* Default route → Task List */}
             <Route index element={<TaskList />} />
+
+            {/*  Create Task */}
             <Route path="tasks/new" element={<TaskForm />} />
+
+            {/*  Edit Task */}
+            <Route path="tasks/edit/:id" element={<TaskForm isEdit />} />
+
+            {/*  Task Details */}
             <Route path="tasks/:id" element={<TaskDetails />} />
           </Route>
 
-         
+          {/* Admin Panel (only for admins) */}
           <Route
             path="/admin"
             element={
@@ -47,7 +55,7 @@ export default function App() {
             }
           />
 
-         
+          {/* Catch-All Redirect */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>

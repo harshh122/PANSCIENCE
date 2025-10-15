@@ -10,16 +10,16 @@ import { protect, adminOnly } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// All routes are protected and admin-only
+
 router.use(protect, adminOnly);
 
 router.route("/")
-    .get(getUsers)      // Get all users
-    .post(createUser);  // Create user
+    .get(getUsers)      
+    .post(createUser); 
 
 router.route("/:id")
-    .get(getUserById)   // Get user by ID
-    .put(updateUser)    // Update user
-    .delete(deleteUser); // Delete user
+    .get(getUserById)   
+    .put(updateUser)    
+    .delete(deleteUser); 
 
 export default router;

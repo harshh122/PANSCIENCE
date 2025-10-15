@@ -13,7 +13,7 @@ export default function Register() {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    setErrors({ ...errors, [e.target.name]: "" }); // clear individual error
+    setErrors({ ...errors, [e.target.name]: "" }); 
   };
 
  

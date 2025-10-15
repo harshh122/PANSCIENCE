@@ -17,14 +17,14 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Enable CORS and JSON parsing
+
 app.use(cors());
 app.use(express.json());
 
-// Serve static uploads folder at root /uploads
-app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Swagger docs
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(specs));
 
 // API Routes

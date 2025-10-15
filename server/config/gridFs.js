@@ -8,7 +8,7 @@ const storage = new GridFsStorage({
     file: (req, file) => {
         return {
             filename: `${Date.now()}-${file.originalname}`,
-            bucketName: "documents", // collection name in MongoDB
+            bucketName: "documents",
         };
     },
 });
